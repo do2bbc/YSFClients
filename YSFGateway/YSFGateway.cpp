@@ -532,6 +532,20 @@ void CYSFGateway::createGPS()
 	m_gps = new CGPS(m_writer);
 }
 
+void CYSFGateway::writeYSFInfo()
+{
+	if (m_ysfNetwork == nullptr)
+		return;
+
+	unsigned int rxFrequency = m_conf.getRxFrequency();
+	unsigned int txFrequency = m_conf.getTxFrequency();
+	std::string locator = calculateLocator();
+	std::string name = m_conf.getName();
+	unsigned int id = m_conf.getId();
+
+	m_ysfNetwork->writeInfo(rxFrequency, txFrequency, locator, name, "MMDVM", id);
+}
+
 void CYSFGateway::createWiresX(CYSFNetwork* rptNetwork)
 {
 	assert(rptNetwork != nullptr);
@@ -602,6 +616,7 @@ void CYSFGateway::processWiresX(const unsigned char* buffer, const CYSFFICH& fic
 
 			m_ysfNetwork->setDestination(*reflector);
 			m_ysfNetwork->writePoll(3U);
+			writeYSFInfo();
 
 			m_current = reflector->m_id;
 			m_inactivityTimer.start();
@@ -727,6 +742,7 @@ void CYSFGateway::processDTMF(unsigned char* buffer, unsigned char dt)
 
 				m_ysfNetwork->setDestination(*reflector);
 				m_ysfNetwork->writePoll(3U);
+				writeYSFInfo();
 
 				m_current = id;
 				m_inactivityTimer.start();
@@ -907,6 +923,7 @@ void CYSFGateway::startupLinking(const std::string& reason)
 
 				m_ysfNetwork->setDestination(*reflector);
 				m_ysfNetwork->writePoll(3U);
+				writeYSFInfo();
 
 				m_current = m_startup;
 				m_inactivityTimer.start();
@@ -955,6 +972,7 @@ void CYSFGateway::reconnectReflector(const std::string& reason, const std::strin
 
 			m_ysfNetwork->setOptions(m_options);
 			m_ysfNetwork->writePoll(3U);
+			writeYSFInfo();
 
 			m_inactivityTimer.start();
 			m_lostTimer.start();
@@ -1038,6 +1056,7 @@ void CYSFGateway::writeCommand(const std::string& command)
 
 				m_ysfNetwork->setDestination(*reflector);
 				m_ysfNetwork->writePoll(3U);
+				writeYSFInfo();
 
 			m_current = id;
 			m_inactivityTimer.start();
