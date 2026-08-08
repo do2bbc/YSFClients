@@ -66,6 +66,7 @@ private:
 	CTimer          m_lostTimer;
 	bool            m_fcsNetworkEnabled;
 	std::string     m_linkedTo;
+	bool            m_ysfInfoPending;
 
 	void startupLinking(const std::string& reason);
 	void reconnectReflector(const std::string& reason, const std::string& nameOrId);
@@ -90,4 +91,3 @@ private:
 };
 
 #endif
-

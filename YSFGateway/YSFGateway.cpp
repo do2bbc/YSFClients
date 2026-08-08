@@ -146,7 +146,8 @@ m_exclude(false),
 m_inactivityTimer(1000U),
 m_lostTimer(1000U, 120U),
 m_fcsNetworkEnabled(false),
-m_linkedTo()
+m_linkedTo(),
+m_ysfInfoPending(false)
 {
 	CUDPSocket::startup();
 }
@@ -363,6 +364,11 @@ int CYSFGateway::run()
 		if (m_ysfNetwork != nullptr) {
 			while (m_ysfNetwork->read(buffer) > 0U) {
 				if (m_linkType == LINK_TYPE::YSF) {
+					if (::memcmp(buffer + 0U, "YSFP", 4U) == 0 && m_ysfInfoPending) {
+						writeYSFInfo();
+						m_ysfInfoPending = false;
+					}
+
 					// Only pass through YSF data packets
 					if (::memcmp(buffer + 0U, "YSFD", 4U) == 0 && !m_wiresX->isBusy())
 						rptNetwork.write(buffer);
@@ -441,6 +447,7 @@ int CYSFGateway::run()
 				writeJSONFailed("timer", m_current);
 				m_wiresX->processDisconnect();
 				m_ysfNetwork->clearDestination();
+				m_ysfInfoPending = false;
 			}
 
 			if (m_fcsNetwork != nullptr) {
@@ -615,6 +622,7 @@ void CYSFGateway::processWiresX(const unsigned char* buffer, const CYSFFICH& fic
 			writeJSONLinking("user", "ysf", reflector->m_name);
 
 			m_ysfNetwork->setDestination(*reflector);
+			m_ysfInfoPending = true;
 			m_ysfNetwork->writePoll(3U);
 			writeYSFInfo();
 
@@ -635,6 +643,7 @@ void CYSFGateway::processWiresX(const unsigned char* buffer, const CYSFFICH& fic
 				writeJSONUnlinked("user");
 				m_ysfNetwork->writeUnlink(3U);
 				m_ysfNetwork->clearDestination();
+				m_ysfInfoPending = false;
 			}
 
 			if (m_linkType == LINK_TYPE::FCS) {
@@ -676,6 +685,7 @@ void CYSFGateway::processWiresX(const unsigned char* buffer, const CYSFFICH& fic
 			writeJSONUnlinked("user");
 			m_ysfNetwork->writeUnlink(3U);
 			m_ysfNetwork->clearDestination();
+			m_ysfInfoPending = false;
 
 			m_current.clear();
 			m_inactivityTimer.start();
@@ -741,6 +751,7 @@ void CYSFGateway::processDTMF(unsigned char* buffer, unsigned char dt)
 				writeJSONLinking("user", "ysf", reflector->m_name);
 
 				m_ysfNetwork->setDestination(*reflector);
+				m_ysfInfoPending = true;
 				m_ysfNetwork->writePoll(3U);
 				writeYSFInfo();
 
@@ -772,6 +783,7 @@ void CYSFGateway::processDTMF(unsigned char* buffer, unsigned char dt)
 				m_wiresX->processDisconnect();
 				m_ysfNetwork->writeUnlink(3U);
 				m_ysfNetwork->clearDestination();
+				m_ysfInfoPending = false;
 			}
 
 			if (m_linkType == LINK_TYPE::FCS) {
@@ -808,6 +820,7 @@ void CYSFGateway::processDTMF(unsigned char* buffer, unsigned char dt)
 
 			m_ysfNetwork->writeUnlink(3U);
 			m_ysfNetwork->clearDestination();
+			m_ysfInfoPending = false;
 
 			m_current.clear();
 			m_inactivityTimer.start();
@@ -922,6 +935,7 @@ void CYSFGateway::startupLinking(const std::string& reason)
 				m_wiresX->setReflector(reflector);
 
 				m_ysfNetwork->setDestination(*reflector);
+				m_ysfInfoPending = true;
 				m_ysfNetwork->writePoll(3U);
 				writeYSFInfo();
 
@@ -971,6 +985,7 @@ void CYSFGateway::reconnectReflector(const std::string& reason, const std::strin
 			m_ysfNetwork->setDestination(*reflector);
 
 			m_ysfNetwork->setOptions(m_options);
+			m_ysfInfoPending = true;
 			m_ysfNetwork->writePoll(3U);
 			writeYSFInfo();
 
@@ -986,6 +1001,7 @@ void CYSFGateway::disconnectCurrentReflector() {
 		m_wiresX->processDisconnect();
 		m_ysfNetwork->writeUnlink(3U);
 		m_ysfNetwork->clearDestination();
+		m_ysfInfoPending = false;
 	}
 
 	if (m_linkType == LINK_TYPE::FCS) {
@@ -1055,6 +1071,7 @@ void CYSFGateway::writeCommand(const std::string& command)
 			writeJSONLinking("remote", "ysf", reflector->m_name);
 
 				m_ysfNetwork->setDestination(*reflector);
+				m_ysfInfoPending = true;
 				m_ysfNetwork->writePoll(3U);
 				writeYSFInfo();
 
@@ -1090,6 +1107,7 @@ void CYSFGateway::writeCommand(const std::string& command)
 			m_wiresX->processDisconnect();
 			m_ysfNetwork->writeUnlink(3U);
 			m_ysfNetwork->clearDestination();
+			m_ysfInfoPending = false;
 		}
 
 		if (m_linkType == LINK_TYPE::FCS) {
@@ -1124,6 +1142,7 @@ void CYSFGateway::writeCommand(const std::string& command)
 
 			m_ysfNetwork->writeUnlink(3U);
 			m_ysfNetwork->clearDestination();
+			m_ysfInfoPending = false;
 
 			m_current.clear();
 			m_inactivityTimer.stop();
@@ -1230,4 +1249,3 @@ void CYSFGateway::onCommand(const unsigned char* command, unsigned int length)
 
 	gateway->writeCommand(std::string((char*)command, length));
 }
-
