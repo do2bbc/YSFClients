@@ -207,16 +207,22 @@ WX_STATUS CWiresX::process(const unsigned char* data, const unsigned char* sourc
 
 	if (fn == 1U) {
 		bool valid = payload.readDataFRModeData2(data, m_command + 0U);
-		if (!valid)
+		if (!valid) {
+			::LogDebug("Wires-X: FN %u Data 2 CRC failed", fn);
 			return WX_STATUS::NONE;
+		}
 	} else {
 		bool valid = payload.readDataFRModeData1(data, m_command + (fn - 2U) * 40U + 20U);
-		if (!valid)
+		if (!valid) {
+			::LogDebug("Wires-X: FN %u Data 1 CRC failed", fn);
 			return WX_STATUS::NONE;
+		}
 
 		valid = payload.readDataFRModeData2(data, m_command + (fn - 2U) * 40U + 40U);
-		if (!valid)
+		if (!valid) {
+			::LogDebug("Wires-X: FN %u Data 2 CRC failed", fn);
 			return WX_STATUS::NONE;
+		}
 	}
 
 	unsigned char ft = fich.getFT();
@@ -234,8 +240,10 @@ WX_STATUS CWiresX::process(const unsigned char* data, const unsigned char* sourc
 			}
 		}
 
-		if (!valid)
+		if (!valid) {
+			::LogDebug("Wires-X: FN %u command end marker or CRC failed", fn);
 			return WX_STATUS::NONE;
+		}
 
 		CUtils::dump(1U, "Received Wires-X command", m_command, cmd_len);
 
