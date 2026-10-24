@@ -30,8 +30,8 @@ public:
 
 	bool readVDMode2Data(const unsigned char* data, unsigned char* dt);
 
-	bool readDataFRModeData1(const unsigned char* data, unsigned char* dt);
-	bool readDataFRModeData2(const unsigned char* data, unsigned char* dt);
+	bool readDataFRModeData1(const unsigned char* data, unsigned char* dt, bool copyOnCRCFailure = false);
+	bool readDataFRModeData2(const unsigned char* data, unsigned char* dt, bool copyOnCRCFailure = false);
 
 	void writeDataFRModeData1(const unsigned char* dt, unsigned char* data);
 	void writeDataFRModeData2(const unsigned char* dt, unsigned char* data);

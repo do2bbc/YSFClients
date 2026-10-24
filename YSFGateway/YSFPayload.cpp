@@ -174,7 +174,7 @@ bool CYSFPayload::readVDMode2Data(const unsigned char* data, unsigned char* dt)
 	return ret;
 }
 
-bool CYSFPayload::readDataFRModeData1(const unsigned char* data, unsigned char* dt)
+bool CYSFPayload::readDataFRModeData1(const unsigned char* data, unsigned char* dt, bool copyOnCRCFailure)
 {
 	assert(data != nullptr);
 	assert(dt != nullptr);
@@ -209,11 +209,12 @@ bool CYSFPayload::readDataFRModeData1(const unsigned char* data, unsigned char* 
 	conv.chainback(output, 176U);
 
 	bool ret = CCRC::checkCCITT16(output, 22U);
-	if (ret) {
+	if (ret || copyOnCRCFailure) {
 		for (unsigned int i = 0U; i < 20U; i++)
 			output[i] ^= WHITENING_DATA[i];
 
-		CUtils::dump(1U, "FR Mode Data 1", output, 20U);
+		if (ret)
+			CUtils::dump(1U, "FR Mode Data 1", output, 20U);
 
 		::memcpy(dt, output, 20U);
 	}
@@ -221,7 +222,7 @@ bool CYSFPayload::readDataFRModeData1(const unsigned char* data, unsigned char* 
 	return ret;
 }
 
-bool CYSFPayload::readDataFRModeData2(const unsigned char* data, unsigned char* dt)
+bool CYSFPayload::readDataFRModeData2(const unsigned char* data, unsigned char* dt, bool copyOnCRCFailure)
 {
 	assert(data != nullptr);
 	assert(dt != nullptr);
@@ -256,11 +257,12 @@ bool CYSFPayload::readDataFRModeData2(const unsigned char* data, unsigned char* 
 	conv.chainback(output, 176U);
 
 	bool ret = CCRC::checkCCITT16(output, 22U);
-	if (ret) {
+	if (ret || copyOnCRCFailure) {
 		for (unsigned int i = 0U; i < 20U; i++)
 			output[i] ^= WHITENING_DATA[i];
 
-		CUtils::dump(1U, "FR Mode Data 2", output, 20U);
+		if (ret)
+			CUtils::dump(1U, "FR Mode Data 2", output, 20U);
 
 		::memcpy(dt, output, 20U);
 	}

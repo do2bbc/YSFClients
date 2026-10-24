@@ -53,6 +53,7 @@ m_reflector(nullptr),
 m_id(),
 m_name(),
 m_command(nullptr),
+m_commandInnerCRCValid(true),
 m_txFrequency(0U),
 m_rxFrequency(0U),
 m_timer(1000U, 1U),
@@ -206,22 +207,23 @@ WX_STATUS CWiresX::process(const unsigned char* data, const unsigned char* sourc
 		return WX_STATUS::NONE;
 
 	if (fn == 1U) {
-		bool valid = payload.readDataFRModeData2(data, m_command + 0U);
+		::memset(m_command, ' ', 300U);
+		bool valid = payload.readDataFRModeData2(data, m_command + 0U, true);
+		m_commandInnerCRCValid = valid;
 		if (!valid) {
-			::LogDebug("Wires-X: FN %u Data 2 CRC failed", fn);
-			return WX_STATUS::NONE;
+			::LogDebug("Wires-X: FN %u Data 2 CRC failed, awaiting command CRC", fn);
 		}
 	} else {
-		bool valid = payload.readDataFRModeData1(data, m_command + (fn - 2U) * 40U + 20U);
+		bool valid = payload.readDataFRModeData1(data, m_command + (fn - 2U) * 40U + 20U, true);
 		if (!valid) {
-			::LogDebug("Wires-X: FN %u Data 1 CRC failed", fn);
-			return WX_STATUS::NONE;
+			m_commandInnerCRCValid = false;
+			::LogDebug("Wires-X: FN %u Data 1 CRC failed, awaiting command CRC", fn);
 		}
 
-		valid = payload.readDataFRModeData2(data, m_command + (fn - 2U) * 40U + 40U);
+		valid = payload.readDataFRModeData2(data, m_command + (fn - 2U) * 40U + 40U, true);
 		if (!valid) {
-			::LogDebug("Wires-X: FN %u Data 2 CRC failed", fn);
-			return WX_STATUS::NONE;
+			m_commandInnerCRCValid = false;
+			::LogDebug("Wires-X: FN %u Data 2 CRC failed, awaiting command CRC", fn);
 		}
 	}
 
@@ -244,6 +246,9 @@ WX_STATUS CWiresX::process(const unsigned char* data, const unsigned char* sourc
 			::LogDebug("Wires-X: FN %u command end marker or CRC failed", fn);
 			return WX_STATUS::NONE;
 		}
+
+		if (!m_commandInnerCRCValid)
+			::LogDebug("Wires-X: recovered command using outer CRC");
 
 		CUtils::dump(1U, "Received Wires-X command", m_command, cmd_len);
 
