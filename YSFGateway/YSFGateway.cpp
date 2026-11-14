@@ -145,6 +145,7 @@ m_options(),
 m_exclude(false),
 m_inactivityTimer(1000U),
 m_lostTimer(1000U, 120U),
+m_ysfInfoTimer(1000U),
 m_fcsNetworkEnabled(false),
 m_linkedTo(),
 m_ysfInfoPending(false)
@@ -264,7 +265,8 @@ int CYSFGateway::run()
 	bool ysfNetworkEnabled = m_conf.getYSFNetworkEnabled();
 	if (ysfNetworkEnabled) {
 		unsigned short ysfPort = m_conf.getYSFNetworkPort();
-		m_ysfNetwork = new CYSFNetwork(ysfPort, m_callsign, debug);
+		bool infoDebug = m_conf.getYSFNetworkInfoDebug();
+		m_ysfNetwork = new CYSFNetwork(ysfPort, m_callsign, debug, infoDebug);
 	}
 
 	m_fcsNetworkEnabled = m_conf.getFCSNetworkEnabled();
@@ -285,6 +287,7 @@ int CYSFGateway::run()
 	}
 
 	m_inactivityTimer.setTimeout(m_conf.getNetworkInactivityTimeout() * 60U);
+	m_ysfInfoTimer.setTimeout(m_conf.getYSFNetworkInfoRefresh() * 60U);
 
 	std::string fileName = m_conf.getYSFNetworkHosts();
 	unsigned int reloadTime = m_conf.getYSFNetworkReloadTime();
@@ -365,7 +368,7 @@ int CYSFGateway::run()
 			while (m_ysfNetwork->read(buffer) > 0U) {
 				if (m_linkType == LINK_TYPE::YSF) {
 					if (::memcmp(buffer + 0U, "YSFP", 4U) == 0 && m_ysfInfoPending) {
-						writeYSFInfo();
+						writeYSFInfo("handshake-retry");
 						m_ysfInfoPending = false;
 					}
 
@@ -409,6 +412,19 @@ int CYSFGateway::run()
 			linkedTo = m_ysfNetwork->linkedTo();
 		else if ((m_linkType == LINK_TYPE::FCS) && (m_fcsNetwork != nullptr))
 			linkedTo = m_fcsNetwork->linkedTo();
+
+		if ((m_linkType == LINK_TYPE::YSF) && !linkedTo.empty()) {
+			m_ysfInfoTimer.clock(ms);
+			if (!m_ysfInfoTimer.isRunning()) {
+				m_ysfInfoTimer.start();
+			} else if (m_ysfInfoTimer.hasExpired()) {
+				writeYSFInfo("periodic-refresh");
+				m_ysfInfoTimer.start();
+			}
+		} else {
+			m_ysfInfoTimer.stop();
+		}
+
 		if (!linkedTo.empty() && (linkedTo != m_linkedTo))
 			writeJSONLinking("established", (m_linkType == LINK_TYPE::FCS) ? "fcs" : "ysf", linkedTo);
 		m_linkedTo = linkedTo;
@@ -539,7 +555,7 @@ void CYSFGateway::createGPS()
 	m_gps = new CGPS(m_writer);
 }
 
-void CYSFGateway::writeYSFInfo()
+void CYSFGateway::writeYSFInfo(const std::string& reason)
 {
 	if (m_ysfNetwork == nullptr)
 		return;
@@ -550,7 +566,7 @@ void CYSFGateway::writeYSFInfo()
 	std::string name = m_conf.getName();
 	unsigned int id = m_conf.getId();
 
-	m_ysfNetwork->writeInfo(rxFrequency, txFrequency, locator, name, "MMDVM", id);
+	m_ysfNetwork->writeInfo(rxFrequency, txFrequency, locator, name, "MMDVM", id, reason);
 }
 
 void CYSFGateway::createWiresX(CYSFNetwork* rptNetwork)
@@ -624,7 +640,7 @@ void CYSFGateway::processWiresX(const unsigned char* buffer, const CYSFFICH& fic
 			m_ysfNetwork->setDestination(*reflector);
 			m_ysfInfoPending = true;
 			m_ysfNetwork->writePoll(3U);
-			writeYSFInfo();
+			writeYSFInfo("wires-x");
 
 			m_current = reflector->m_id;
 			m_inactivityTimer.start();
@@ -753,7 +769,7 @@ void CYSFGateway::processDTMF(unsigned char* buffer, unsigned char dt)
 				m_ysfNetwork->setDestination(*reflector);
 				m_ysfInfoPending = true;
 				m_ysfNetwork->writePoll(3U);
-				writeYSFInfo();
+				writeYSFInfo("dtmf");
 
 				m_current = id;
 				m_inactivityTimer.start();
@@ -937,7 +953,7 @@ void CYSFGateway::startupLinking(const std::string& reason)
 				m_ysfNetwork->setDestination(*reflector);
 				m_ysfInfoPending = true;
 				m_ysfNetwork->writePoll(3U);
-				writeYSFInfo();
+				writeYSFInfo("startup");
 
 				m_current = m_startup;
 				m_inactivityTimer.start();
@@ -987,7 +1003,7 @@ void CYSFGateway::reconnectReflector(const std::string& reason, const std::strin
 			m_ysfNetwork->setOptions(m_options);
 			m_ysfInfoPending = true;
 			m_ysfNetwork->writePoll(3U);
-			writeYSFInfo();
+			writeYSFInfo("reconnect");
 
 			m_inactivityTimer.start();
 			m_lostTimer.start();
@@ -1073,7 +1089,7 @@ void CYSFGateway::writeCommand(const std::string& command)
 				m_ysfNetwork->setDestination(*reflector);
 				m_ysfInfoPending = true;
 				m_ysfNetwork->writePoll(3U);
-				writeYSFInfo();
+				writeYSFInfo("remote");
 
 			m_current = id;
 			m_inactivityTimer.start();

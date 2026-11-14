@@ -64,6 +64,7 @@ private:
 	bool            m_exclude;
 	CTimer          m_inactivityTimer;
 	CTimer          m_lostTimer;
+	CTimer          m_ysfInfoTimer;
 	bool            m_fcsNetworkEnabled;
 	std::string     m_linkedTo;
 	bool            m_ysfInfoPending;
@@ -76,7 +77,7 @@ private:
 	void processDTMF(unsigned char* buffer, unsigned char dt);
 	void createWiresX(CYSFNetwork* rptNetwork);
 	void createGPS();
-	void writeYSFInfo();
+	void writeYSFInfo(const std::string& reason);
 	void readFCSRoomsFile(const std::string& filename);
 
 	void writeJSONStatus(const std::string& status);

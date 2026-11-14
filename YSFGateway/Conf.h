@@ -83,6 +83,8 @@ public:
 
 	// The YSF Network section
 	bool         getYSFNetworkEnabled() const;
+	bool         getYSFNetworkInfoDebug() const;
+	unsigned int getYSFNetworkInfoRefresh() const;
 	unsigned short getYSFNetworkPort() const;
 	std::string  getYSFNetworkHosts() const;
 	unsigned int getYSFNetworkReloadTime() const;
@@ -154,6 +156,8 @@ private:
 	bool         m_networkDebug;
 
 	bool         m_ysfNetworkEnabled;
+	bool         m_ysfNetworkInfoDebug;
+	unsigned int m_ysfNetworkInfoRefresh;
 	unsigned short m_ysfNetworkPort;
 	std::string  m_ysfNetworkHosts;
 	unsigned int m_ysfNetworkReloadTime;

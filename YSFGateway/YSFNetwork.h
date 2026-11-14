@@ -31,7 +31,7 @@
 class CYSFNetwork {
 public:
 	CYSFNetwork(const std::string& address, unsigned short port, const std::string& callsign, bool debug);
-	CYSFNetwork(unsigned short port, const std::string& callsign, bool debug);
+	CYSFNetwork(unsigned short port, const std::string& callsign, bool debug, bool infoDebug = false);
 	~CYSFNetwork();
 
 	bool setDestination(const std::string& name, const sockaddr_storage& addr, unsigned int addrLen);
@@ -42,7 +42,7 @@ public:
 
 	void writePoll(unsigned int count = 1U);
 	void setOptions(const std::string& options = "");
-	void writeInfo(unsigned int rxFrequency, unsigned int txFrequency, const std::string& locator, const std::string& name, const std::string& type, unsigned int id);
+	void writeInfo(unsigned int rxFrequency, unsigned int txFrequency, const std::string& locator, const std::string& name, const std::string& type, unsigned int id, const std::string& reason);
 	void writeUnlink(unsigned int count = 1U);
 
 	unsigned int read(unsigned char* data);
@@ -55,6 +55,7 @@ public:
 private:
 	CUDPSocket                 m_socket;
 	bool                       m_debug;
+	bool                       m_infoDebug;
 	CYSFReflector              m_reflector;
 	unsigned char*             m_poll;
 	unsigned char*             m_options;

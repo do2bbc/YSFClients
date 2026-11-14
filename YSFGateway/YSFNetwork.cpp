@@ -44,6 +44,7 @@ static void copyNumber(unsigned char* dest, unsigned int value, unsigned int len
 CYSFNetwork::CYSFNetwork(const std::string& address, unsigned short port, const std::string& callsign, bool debug) :
 m_socket(address, port),
 m_debug(debug),
+m_infoDebug(false),
 m_reflector(),
 m_poll(nullptr),
 m_options(nullptr),
@@ -73,9 +74,10 @@ m_ipV6(false)
 	}
 }
 
-CYSFNetwork::CYSFNetwork(unsigned short port, const std::string& callsign, bool debug) :
+CYSFNetwork::CYSFNetwork(unsigned short port, const std::string& callsign, bool debug, bool infoDebug) :
 m_socket(port),
 m_debug(debug),
+m_infoDebug(infoDebug),
 m_reflector(),
 m_poll(nullptr),
 m_options(nullptr),
@@ -250,10 +252,13 @@ void CYSFNetwork::setOptions(const std::string& options)
 		m_options[i + 4U + YSF_CALLSIGN_LENGTH] = m_opt.at(i);
 }
 
-void CYSFNetwork::writeInfo(unsigned int rxFrequency, unsigned int txFrequency, const std::string& locator, const std::string& name, const std::string& type, unsigned int id)
+void CYSFNetwork::writeInfo(unsigned int rxFrequency, unsigned int txFrequency, const std::string& locator, const std::string& name, const std::string& type, unsigned int id, const std::string& reason)
 {
-	if (m_reflector.isEmpty())
+	if (m_reflector.isEmpty()) {
+		if (m_infoDebug)
+			LogDebug("YSFI not sent: reason=%s, no reflector destination", reason.c_str());
 		return;
+	}
 
 	unsigned char info[80U];
 	::memset(info, ' ', 80U);
@@ -266,13 +271,19 @@ void CYSFNetwork::writeInfo(unsigned int rxFrequency, unsigned int txFrequency, 
 	copyPadded(info + 58U, type, 12U);
 	copyNumber(info + 70U, id, 7U);
 
-	if (m_debug)
-		CUtils::dump(1U, "YSF Network Data Sent", info, 80U);
-
+	bool ret;
 	if (m_ipV6)
-		m_socket.write(info, 80U, m_reflector.IPv6.m_addr, m_reflector.IPv6.m_addrLen);
+		ret = m_socket.write(info, 80U, m_reflector.IPv6.m_addr, m_reflector.IPv6.m_addrLen);
 	else
-		m_socket.write(info, 80U, m_reflector.IPv4.m_addr, m_reflector.IPv4.m_addrLen);
+		ret = m_socket.write(info, 80U, m_reflector.IPv4.m_addr, m_reflector.IPv4.m_addrLen);
+
+	if (m_infoDebug) {
+		LogDebug("YSFI send: reason=%s, reflector=%s, callsign=%.10s, rx=%09u, tx=%09u, locator=%.6s, name=%.20s, type=%.12s, id=%07u, bytes=80, result=%s",
+			reason.c_str(), m_reflector.m_name.c_str(), m_poll + 4U, rxFrequency, txFrequency, locator.c_str(), name.c_str(), type.c_str(), id, ret ? "sent" : "failed");
+		CUtils::dump(1U, "YSFI payload", info, 80U);
+	} else if (m_debug) {
+		CUtils::dump(1U, "YSF Network Data Sent", info, 80U);
+	}
 }
 
 void CYSFNetwork::writeUnlink(unsigned int count)

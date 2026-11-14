@@ -81,6 +81,8 @@ m_networkReconnect(false),
 m_networkRevert(false),
 m_networkDebug(false),
 m_ysfNetworkEnabled(false),
+m_ysfNetworkInfoDebug(false),
+m_ysfNetworkInfoRefresh(0U),
 m_ysfNetworkPort(0U),
 m_ysfNetworkHosts(),
 m_ysfNetworkReloadTime(0U),
@@ -260,6 +262,10 @@ bool CConf::read()
 		} else if (section == SECTION::YSF_NETWORK) {
 			if (::strcmp(key, "Enable") == 0)
 				m_ysfNetworkEnabled = ::atoi(value) == 1;
+			else if (::strcmp(key, "InfoDebug") == 0)
+				m_ysfNetworkInfoDebug = ::atoi(value) == 1;
+			else if (::strcmp(key, "InfoRefresh") == 0)
+				m_ysfNetworkInfoRefresh = (unsigned int)::atoi(value);
 			else if (::strcmp(key, "Port") == 0)
 				m_ysfNetworkPort = (unsigned short)::atoi(value);
 			else if (::strcmp(key, "Hosts") == 0)
@@ -495,6 +501,16 @@ bool CConf::getNetworkDebug() const
 bool CConf::getYSFNetworkEnabled() const
 {
 	return m_ysfNetworkEnabled;
+}
+
+bool CConf::getYSFNetworkInfoDebug() const
+{
+	return m_ysfNetworkInfoDebug;
+}
+
+unsigned int CConf::getYSFNetworkInfoRefresh() const
+{
+	return m_ysfNetworkInfoRefresh;
 }
 
 unsigned short CConf::getYSFNetworkPort() const
