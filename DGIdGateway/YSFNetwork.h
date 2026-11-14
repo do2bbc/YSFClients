@@ -68,6 +68,7 @@ private:
 	CRingBuffer<unsigned char> m_buffer;
 	CTimer                     m_sendPollTimer;
 	CTimer                     m_recvPollTimer;
+	CTimer                     m_infoTimer;
 	DGID_STATUS                m_state;
 	bool                       m_ipV6;
 	bool                       m_ysfInfoPending;
@@ -79,7 +80,7 @@ private:
 	unsigned int               m_id;
 
 	void writePoll();
-	void writeInfo();
+	void writeInfo(const char* reason);
 };
 
 #endif

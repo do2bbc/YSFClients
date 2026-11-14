@@ -51,6 +51,7 @@ m_unlink(nullptr),
 m_buffer(1000U, "YSF Network Buffer"),
 m_sendPollTimer(1000U, 5U),
 m_recvPollTimer(1000U, 60U),
+m_infoTimer(1000U, 600U),
 m_state(DGID_STATUS::NOTOPEN),
 m_ipV6(false),
 m_ysfInfoPending(false),
@@ -104,6 +105,7 @@ m_unlink(nullptr),
 m_buffer(1000U, "YSF Network Buffer"),
 m_sendPollTimer(1000U, 5U),
 m_recvPollTimer(1000U, 60U),
+m_infoTimer(1000U, 600U),
 m_state(DGID_STATUS::NOTOPEN),
 m_ipV6(false),
 m_ysfInfoPending(false),
@@ -157,6 +159,7 @@ m_unlink(nullptr),
 m_buffer(1000U, "YSF Network Buffer"),
 m_sendPollTimer(1000U, 5U),
 m_recvPollTimer(1000U, 60U),
+m_infoTimer(1000U, 600U),
 m_state(DGID_STATUS::NOTOPEN),
 m_ipV6(false),
 m_ysfInfoPending(false),
@@ -268,9 +271,10 @@ void CYSFNetwork::link()
 
 	m_sendPollTimer.start();
 	m_recvPollTimer.start();
+	m_infoTimer.stop();
 
 	writePoll();
-	writeInfo();
+	writeInfo("link");
 }
 
 void CYSFNetwork::writePoll()
@@ -287,8 +291,10 @@ void CYSFNetwork::writePoll()
 		m_socket.write(m_poll, 14U, m_reflector.IPv4.m_addr, m_reflector.IPv4.m_addrLen);
 }
 
-void CYSFNetwork::writeInfo()
+void CYSFNetwork::writeInfo(const char* reason)
 {
+	assert(reason != nullptr);
+
 	if (m_name.empty() && m_type.empty())
 		return;
 
@@ -303,13 +309,17 @@ void CYSFNetwork::writeInfo()
 	copyPadded(info + 58U, m_type, 12U);
 	copyNumber(info + 70U, m_id, 7U);
 
-	if (m_debug)
-		CUtils::dump(1U, "YSF Network Data Sent", info, 80U);
-
+	bool ret;
 	if (m_ipV6)
-		m_socket.write(info, 80U, m_reflector.IPv6.m_addr, m_reflector.IPv6.m_addrLen);
+		ret = m_socket.write(info, 80U, m_reflector.IPv6.m_addr, m_reflector.IPv6.m_addrLen);
 	else
-		m_socket.write(info, 80U, m_reflector.IPv4.m_addr, m_reflector.IPv4.m_addrLen);
+		ret = m_socket.write(info, 80U, m_reflector.IPv4.m_addr, m_reflector.IPv4.m_addrLen);
+
+	if (m_debug) {
+		LogDebug("YSFI send: reason=%s, reflector=%s, callsign=%.10s, rx=%09u, tx=%09u, locator=%.6s, name=%.20s, type=%.12s, id=%07u, bytes=80, result=%s",
+			reason, m_reflector.m_name.c_str(), m_poll + 4U, m_rxFrequency, m_txFrequency, m_locator.c_str(), m_name.c_str(), m_type.c_str(), m_id, ret ? "sent" : "failed");
+		CUtils::dump(1U, "YSFI payload", info, 80U);
+	}
 }
 
 void CYSFNetwork::unlink()
@@ -319,6 +329,7 @@ void CYSFNetwork::unlink()
 
 	m_sendPollTimer.stop();
 	m_recvPollTimer.stop();
+	m_infoTimer.stop();
 
 	if (m_debug)
 		CUtils::dump(1U, "YSF Network Data Sent", m_unlink, 14U);
@@ -342,6 +353,7 @@ void CYSFNetwork::clock(unsigned int ms)
 	if (m_recvPollTimer.isRunning() && m_recvPollTimer.hasExpired()) {
 		if (m_static) {
 			m_state = DGID_STATUS::LINKING;
+			m_ysfInfoPending = true;
 		} else {
 			m_state = DGID_STATUS::NOTLINKED;
 			m_sendPollTimer.stop();
@@ -349,12 +361,19 @@ void CYSFNetwork::clock(unsigned int ms)
 
 		LogMessage("Lost link to %s", m_reflector.m_name.c_str());
 		m_recvPollTimer.stop();
+		m_infoTimer.stop();
 	}
 
 	m_sendPollTimer.clock(ms);
 	if (m_sendPollTimer.isRunning() && m_sendPollTimer.hasExpired()) {
 		writePoll();
 		m_sendPollTimer.start();
+	}
+
+	m_infoTimer.clock(ms);
+	if (m_state == DGID_STATUS::LINKED && m_infoTimer.isRunning() && m_infoTimer.hasExpired()) {
+		writeInfo("periodic-refresh");
+		m_infoTimer.start();
 	}
 
 	unsigned char buffer[BUFFER_LENGTH];
@@ -382,7 +401,7 @@ void CYSFNetwork::clock(unsigned int ms)
 		m_recvPollTimer.start();
 
 		if (m_ysfInfoPending) {
-			writeInfo();
+			writeInfo("handshake-retry");
 			m_ysfInfoPending = false;
 		}
 
@@ -393,6 +412,7 @@ void CYSFNetwork::clock(unsigned int ms)
 				LogMessage("Linked to %s", m_reflector.m_name.c_str());
 
 			m_state = DGID_STATUS::LINKED;
+			m_infoTimer.start();
 		}
 	}
 
@@ -423,6 +443,7 @@ unsigned int CYSFNetwork::read(unsigned int dgid, unsigned char* data)
 
 void CYSFNetwork::close()
 {
+	m_infoTimer.stop();
 	m_socket.close();
 
 	LogMessage("Closing YSF network connection");
